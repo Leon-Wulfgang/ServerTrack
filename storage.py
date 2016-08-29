@@ -38,7 +38,11 @@ class Storage(object):
         sid = serverLoad['serverId']
 
         # current time interval = timestamp / SECOND_IN_MINUTE , each minute
-        timeinterval = int(time.time() / self.SECOND_IN_MINUTE)
+        currentTime = time.time()
+        if 'ts' in serverLoad:
+            currentTime = float(serverLoad['ts'])
+        timeinterval = int(currentTime / self.SECOND_IN_MINUTE)
+
 
         # create record for server id if not exist
         if sid not in self.data:
@@ -82,40 +86,45 @@ class Storage(object):
                 'cpu': {},
                 'ram': {},
             }
-            # format data
+
+            # sort cpu intervals
             cpuIntervals = sorted(data['cpu'].keys())
-            # init helpers
             lastInterval = cpuIntervals[0]
             for interval in cpuIntervals:
+                # make last interval the hour basket
                 intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+                # within this hour, put data in basket
                 if interval < lastInterval + self.PAST_HOUR:
                     if intervalHour not in formatData['cpu']:
                         formatData['cpu'][intervalHour] = []
                     formatData['cpu'][intervalHour].append(data['cpu'][interval])
+                # new hour
                 else:
-                    # into result
-                    formatData['cpu'][intervalHour] = avg(formatData['cpu'][intervalHour])
                     # init helpers
                     lastInterval = interval
-            intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
-            formatData['cpu'][intervalHour] = avg(formatData['cpu'][intervalHour])
 
+            # calculate averages
+            for hour in formatData['cpu']:
+                formatData['cpu'][hour] = avg(formatData['cpu'][hour])
+
+            # sort ram intervals
             ramIntervals = sorted(data['ram'].keys())
-            # init helpers
             lastInterval = ramIntervals[0]
             for interval in ramIntervals:
+                # make last interval the hour basket
                 intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+                # within this hour, put data in basket
                 if interval < lastInterval + self.PAST_HOUR:
                     if intervalHour not in formatData['ram']:
                         formatData['ram'][intervalHour] = []
                     formatData['ram'][intervalHour].append(data['ram'][interval])
                 else:
-                    # into result
-                    formatData['ram'][intervalHour] = avg(formatData['ram'][intervalHour])
                     # init helpers
                     lastInterval = interval
-            intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
-            formatData['ram'][intervalHour] = avg(formatData['ram'][intervalHour])
+
+            # calculate averages
+            for hour in formatData['ram']:
+                formatData['ram'][hour] = avg(formatData['ram'][hour])
 
             result['data'] = formatData
 

@@ -23,7 +23,8 @@ def serverListResource():
         serverName = request.args.get('name', '')
         cpuLoad = request.args.get('cpu', '')
         ramLoad = request.args.get('ram', '')
-        return recordLoad(serverId, serverName, cpuLoad, ramLoad)
+        ts = request.args.get('ts', '')
+        return recordLoad(serverId, serverName, cpuLoad, ramLoad, ts)
 
 
 @app.route("/record/<int:sid>/<string:interval>", methods=['GET'])
@@ -36,13 +37,16 @@ def serverDetailResource(sid, interval):
 
 
 # store POST record
-def recordLoad(serverId, serverName, cpuLoad=None, ramLoad=None):
+def recordLoad(serverId, serverName, cpuLoad=None, ramLoad=None, ts=None):
     serverLoad = {
         'serverId': int(serverId),
         'serverName': str(serverName),
         'cpuLoad': float(cpuLoad),
         'ramLoad': float(ramLoad),
     }
+    if ts:
+        serverLoad['ts'] = ts
+
     storage.insert(serverLoad)
     result = serverLoad
     return jsonify(result)
