@@ -19,7 +19,7 @@ def serverListResource():
     resource for list of server loads
     """
     if request.method == 'POST':
-        serverId = request.args.get('id', '')
+        serverId = request.args.get('sid', '')
         serverName = request.args.get('name', '')
         cpuLoad = request.args.get('cpu', '')
         ramLoad = request.args.get('ram', '')

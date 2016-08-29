@@ -20,6 +20,10 @@ class Storage(object):
     }
     """
     data = None
+    lastPurgeTime = None
+    SECOND_IN_MINUTE = 60
+    PAST_HOUR = 60
+    PAST_DAY = 1440
 
     # init dictionary of records
     def __init__(self):
@@ -27,10 +31,14 @@ class Storage(object):
 
     # insert record to data
     def insert(self, serverLoad):
+        # check to see if a purge is needed
+        self.purgeOld()
+
+        # server id
         sid = serverLoad['serverId']
 
-        # current time interval = timestamp / 60 , each minute
-        timeinterval = int(time.time() / 60)
+        # current time interval = timestamp / SECOND_IN_MINUTE , each minute
+        timeinterval = int(time.time() / self.SECOND_IN_MINUTE)
 
         # create record for server id if not exist
         if sid not in self.data:
@@ -53,16 +61,116 @@ class Storage(object):
     # return load status by sid & interval type
     def getLoadBySidInterval(self, sid, interval='m'):
         serverLoadInfo = self.data[sid]
+        result = {}
+        result['serverName'] = serverLoadInfo['name']
+        if interval == 'm':
+            data = self.getPast(serverLoadInfo, self.PAST_HOUR)
+            formatData = {
+                'cpu': {},
+                'ram': {},
+            }
+            # format data
+            for interval in data['cpu']:
+                formatData['cpu'][time.strftime("%m/%d %H:%M", time.localtime(interval * self.SECOND_IN_MINUTE))] = data['cpu'][interval]
+            for interval in data['ram']:
+                formatData['ram'][time.strftime("%m/%d %H:%M", time.localtime(interval * self.SECOND_IN_MINUTE))] = data['ram'][interval]
+            result['data'] = formatData
 
-        # current time interval = timestamp / 60 , each minute
-        timeinterval = int(time.time() / 60)
+        elif interval == 'h':
+            data = self.getPast(serverLoadInfo, self.PAST_DAY)
+            formatData = {
+                'cpu': {},
+                'ram': {},
+            }
+            # format data
+            cpuIntervals = sorted(data['cpu'].keys())
+            # init helpers
+            lastInterval = cpuIntervals[0]
+            for interval in cpuIntervals:
+                intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+                if interval < lastInterval + self.PAST_HOUR:
+                    if intervalHour not in formatData['cpu']:
+                        formatData['cpu'][intervalHour] = []
+                    formatData['cpu'][intervalHour].append(data['cpu'][interval])
+                else:
+                    # into result
+                    formatData['cpu'][intervalHour] = avg(formatData['cpu'][intervalHour])
+                    # init helpers
+                    lastInterval = interval
+            intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+            formatData['cpu'][intervalHour] = avg(formatData['cpu'][intervalHour])
 
-        cpuAverage = sum(serverLoadInfo['cpu'][timeinterval]) / len(serverLoadInfo['cpu'][timeinterval])
-        ramAverage = sum(serverLoadInfo['ram'][timeinterval]) / len(serverLoadInfo['ram'][timeinterval])
+            ramIntervals = sorted(data['ram'].keys())
+            # init helpers
+            lastInterval = ramIntervals[0]
+            for interval in ramIntervals:
+                intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+                if interval < lastInterval + self.PAST_HOUR:
+                    if intervalHour not in formatData['ram']:
+                        formatData['ram'][intervalHour] = []
+                    formatData['ram'][intervalHour].append(data['ram'][interval])
+                else:
+                    # into result
+                    formatData['ram'][intervalHour] = avg(formatData['ram'][intervalHour])
+                    # init helpers
+                    lastInterval = interval
+            intervalHour = time.strftime("%m/%d %H:00", time.localtime(lastInterval * self.SECOND_IN_MINUTE))
+            formatData['ram'][intervalHour] = avg(formatData['ram'][intervalHour])
 
+            result['data'] = formatData
+
+        # debug
+        # result['debug'] = self.getDebugInfo(serverLoadInfo)
+
+        return result
+
+    # get past average load for a given interval of time range
+    def getPast(self, serverLoadInfo, pastInterval=PAST_HOUR):
+        cpu, ram = {}, {}
+        currentTimeInterval = int(time.time() / self.SECOND_IN_MINUTE)
+        endTimeInterval = currentTimeInterval - pastInterval
+        while currentTimeInterval > endTimeInterval:
+            if currentTimeInterval in serverLoadInfo['cpu']:
+                cpu[currentTimeInterval] = avg(serverLoadInfo['cpu'][currentTimeInterval])
+            if currentTimeInterval in serverLoadInfo['ram']:
+                ram[currentTimeInterval] = avg(serverLoadInfo['ram'][currentTimeInterval])
+            currentTimeInterval -= 1
         return {
-            'serverName': serverLoadInfo['name'],
-            'cpuAverage': cpuAverage,
-            'ramAverage': ramAverage,
+            'cpu': cpu,
+            'ram': ram,
         }
 
+    # purge old data, if data is older than self.PAST_DAY, delete node
+    def purgeOld(self):
+        # check last purge time
+        if self.lastPurgeTime < (time.time() - self.SECOND_IN_MINUTE*self.PAST_DAY*self.PAST_HOUR):
+
+            for server in self.data:
+                for interval in server['cpu']:
+                    if interval < time.time() - self.PAST_DAY:
+                        del interval
+                for interval in server['ram']:
+                    if interval < time.time() - self.PAST_DAY:
+                        del interval
+
+            self.lastPurgeTime = time.time()
+
+    def getDebugInfo(self, serverLoadInfo):
+        # current time interval = timestamp / 60 , each minute
+        timeinterval = int(time.time() / self.SECOND_IN_MINUTE)
+
+        # debug
+        debugCountInterval = len(serverLoadInfo['cpu'])
+        debugIntervalKeys = serverLoadInfo['cpu'].keys()
+        debugCountEntry = len(serverLoadInfo['cpu'][timeinterval])
+        debug = {
+            'debugCountInterval': debugCountInterval,
+            'debugCountEntry': debugCountEntry,
+            'debugCountKeys': debugIntervalKeys,
+        }
+        return debug
+
+
+
+def avg(numbers):
+    return float(sum(numbers)) / max(len(numbers), 1)

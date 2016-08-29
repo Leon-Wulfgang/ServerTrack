@@ -1,27 +1,29 @@
 import httplib2
-import json
 import random
+import time
 
-# API address
+# CONFIGS ####################################
 address = 'http://localhost:5000'
+runtime = 10
+serverId = 1
+# END CONFIGS ################################
 
 
 # POST a random load record
-def postRandomLoad():
+def postRandomLoad(sid, name):
 
     cpu = random.random()
     ram = random.random()
 
-    url = address + "/record?id=01&name=hello&cpu=%s&ram=%s" % (cpu, ram)
+    url = address + "/record?sid=%s&name=%s&cpu=%s&ram=%s" % (sid, name, cpu, ram)
     h = httplib2.Http()
     resp, result = h.request(url, 'POST')
     if resp['status'] != '200':
         print resp, result
 
 
-def getLoadStatus():
-    sid = '01'
-    interval = 'm'
+# GET server status by server id & interval type
+def getLoadStatus(sid, interval):
     url = address + "/record/%s/%s" % (sid, interval)
     h = httplib2.Http()
     resp, result = h.request(url, 'GET')
@@ -31,5 +33,14 @@ def getLoadStatus():
 
 
 if __name__ == '__main__':
-    postRandomLoad()
-    getLoadStatus()
+    endTime = time.clock() + runtime
+    print "Populating server data for %s seconds " % runtime
+    while time.clock() < endTime:
+        postRandomLoad(serverId, 'helloServer')
+
+    print "GET server status for server ID: %s for the past hour break down by minute" % serverId
+    getLoadStatus(serverId, 'm')
+    print "GET server status for server ID: %s for the past day break down by hour" % serverId
+    getLoadStatus(serverId, 'h')
+
+
