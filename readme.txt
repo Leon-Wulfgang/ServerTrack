@@ -1,12 +1,12 @@
 
-1. Flask microFramework was used, to install:
+0. Flask microFramework was used, to install:
     pip install Flask
     # if you have difficulty installing Flask this way, please use the Flask-0.11.tar.gz package to install from the source code.
 
-2. to start the API server for ServerTrack: (keep it running when doing requests to it)
+1. to start the API server for ServerTrack: (keep it running when doing requests to it)
     python servertrack.py
 
-3. to run test: (the results will be shown as JSON in the terminal)
+2. to run tests: (the results will be displayed in readable JSON format in the terminal)
     python tester.py
 
 Test cases/functions in tester.py
